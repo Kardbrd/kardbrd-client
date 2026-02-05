@@ -1,0 +1,60 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kardbrd-client"
+version = "1.0.0"
+description = "Python client for the Kardbrd Board API"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Kardbrd Team" }
+]
+keywords = ["kardbrd", "api", "client"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "httpx>=0.25.0",
+    "apscheduler>=3.10.0",
+    "rich>=13.0.0",
+    "tenacity>=8.0.0",
+    "mcp>=1.0.0",
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-httpx>=0.21.0",
+    "pytest-asyncio>=0.23.0",
+    "anthropic>=0.25.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-httpx>=0.21.0",
+    "pytest-asyncio>=0.23.0",
+    "anthropic>=0.25.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/example/kardbrd-client"
+Documentation = "https://github.com/example/kardbrd-client#readme"
+Issues = "https://github.com/example/kardbrd-client/issues"
+
+[project.scripts]
+kardbrd-mcp = "kardbrd_client.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kardbrd_client"]
