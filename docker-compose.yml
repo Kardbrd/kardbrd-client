@@ -32,4 +32,4 @@ services:
       - ./claude:/home/agent/.claude
 
       # SSH key (read-only) — use a DEDICATED key, not personal
-      - ./ssh/id_ed25519:/home/agent/.ssh/id_ed25519:ro
+      - ../aimployee_ed25519:/home/agent/.ssh/id_ed25519:ro
