@@ -93,6 +93,13 @@ class ToolExecutor:
                     tool_input["content"],
                 )
 
+            case "toggle_reaction":
+                return self.client.toggle_reaction(
+                    card_id=tool_input["card_id"],
+                    comment_id=tool_input["comment_id"],
+                    emoji=tool_input["emoji"],
+                )
+
             case "create_checklist":
                 return self.client.create_checklist(
                     tool_input["card_id"],
