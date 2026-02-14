@@ -57,6 +57,9 @@ class ToolExecutor:
             case "get_card":
                 return self.client.get_card(tool_input["card_id"])
 
+            case "get_board_labels":
+                return self.client.get_board_labels(tool_input["board_id"])
+
             case "update_card":
                 return self.client.update_card(
                     tool_input["card_id"],
@@ -64,6 +67,7 @@ class ToolExecutor:
                     description=tool_input.get("description"),
                     due_date=tool_input.get("due_date"),
                     assignee_id=tool_input.get("assignee_id"),
+                    label_ids=tool_input.get("label_ids"),
                 )
 
             case "create_card":
