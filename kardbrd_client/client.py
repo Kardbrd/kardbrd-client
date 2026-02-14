@@ -308,6 +308,89 @@ class KardbrdClient:
         return self._request_markdown(f"/api/boards/{board_id}/")
 
     # =========================================================================
+    # Label Methods
+    # =========================================================================
+
+    def get_board_labels(self, board_id: str) -> dict[str, Any]:
+        """
+        Get all labels defined on a board.
+
+        Args:
+            board_id: The public_id of the board
+
+        Returns:
+            Dict with 'labels' list containing label objects with id, name, color, position
+
+        Example:
+            >>> labels = client.get_board_labels("abc123...")
+            >>> for label in labels['labels']:
+            ...     print(f"{label['name']} ({label['color']})")
+        """
+        return self._request("GET", f"/api/boards/{board_id}/labels/")
+
+    def rename_board_label(
+        self,
+        board_id: str,
+        label_id: str,
+        name: str,
+    ) -> dict[str, Any]:
+        """
+        Rename a board label.
+
+        Args:
+            board_id: The public_id of the board
+            label_id: The public_id of the label
+            name: New name for the label
+
+        Returns:
+            Updated label object with id, name, color, position
+
+        Example:
+            >>> label = client.rename_board_label("abc123...", "label456...", "Critical")
+        """
+        return self._request(
+            "PATCH",
+            f"/api/boards/{board_id}/labels/{label_id}/",
+            json={"name": name},
+        )
+
+    def add_card_label(self, card_id: str, label_id: str) -> dict[str, Any]:
+        """
+        Add a label to a card.
+
+        Args:
+            card_id: The public_id of the card
+            label_id: The public_id of the label to add
+
+        Returns:
+            Label object with id, name, color (201 if new, 200 if already assigned)
+
+        Example:
+            >>> label = client.add_card_label("card123...", "label456...")
+        """
+        return self._request(
+            "POST",
+            f"/api/cards/{card_id}/labels/",
+            json={"label_id": label_id},
+        )
+
+    def remove_card_label(self, card_id: str, label_id: str) -> dict[str, Any]:
+        """
+        Remove a label from a card.
+
+        Args:
+            card_id: The public_id of the card
+            label_id: The public_id of the label to remove
+
+        Returns:
+            Dict with 'removed': True (404 if label not assigned)
+
+        Example:
+            >>> result = client.remove_card_label("card123...", "label456...")
+        """
+        return self._request("DELETE", f"/api/cards/{card_id}/labels/{label_id}/")
+
+    # =========================================================================
     # Card Methods
     # =========================================================================
 
@@ -355,6 +438,7 @@ class KardbrdClient:
         description: str | None = None,
         due_date: str | None = None,
         assignee_id: str | None = None,
+        label_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Update card fields.
@@ -365,6 +449,7 @@ class KardbrdClient:
             description: New card description (optional)
             due_date: New due date in ISO 8601 format (optional, e.g., "2024-12-31T23:59:59Z")
             assignee_id: public_id of the user to assign (optional, must be a board member)
+            label_ids: List of label IDs to assign (optional, replaces existing labels)
 
         Returns:
             Updated card object
@@ -374,7 +459,8 @@ class KardbrdClient:
             ...     "def456...",
             ...     title="Updated Title",
             ...     description="New description",
-            ...     due_date="2024-12-31T23:59:59Z"
+            ...     due_date="2024-12-31T23:59:59Z",
+            ...     label_ids=["label1", "label2"]
             ... )
         """
         data = {}
@@ -386,6 +472,8 @@ class KardbrdClient:
             data["due_date"] = due_date
         if assignee_id is not None:
             data["assignee_id"] = assignee_id
+        if label_ids is not None:
+            data["label_ids"] = label_ids
 
         return self._request("POST", f"/api/cards/{card_id}/", json=data)
 

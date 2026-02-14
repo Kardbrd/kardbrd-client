@@ -22,6 +22,20 @@ TOOLS = [
         },
     },
     {
+        "name": "get_board_labels",
+        "description": "Get all labels defined on a board. Returns label IDs, names, colors, and positions.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "board_id": {
+                    "type": "string",
+                    "description": "The id of the board",
+                }
+            },
+            "required": ["board_id"],
+        },
+    },
+    {
         "name": "get_card",
         "description": "Get detailed information about a specific card, including its checklists, comments, and metadata.",
         "input_schema": {
@@ -60,6 +74,11 @@ TOOLS = [
                 "assignee_id": {
                     "type": "string",
                     "description": "id of user to assign (optional)",
+                },
+                "label_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of label IDs to assign (replaces existing labels)",
                 },
             },
             "required": ["card_id"],
