@@ -7,7 +7,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 
 RUN npm install -g @anthropic-ai/claude-code
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 RUN useradd -m -s /bin/bash -u 1000 agent \
     && mkdir -p /home/agent/.ssh /home/agent/.claude /home/agent/repository /home/agent/workspaces /app/state \
