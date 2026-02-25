@@ -194,13 +194,39 @@ class ToolExecutor:
                 )
 
             case "attach_file":
-                return self.client.upload_file_content(
-                    card_id=tool_input["card_id"],
-                    filename=tool_input["filename"],
-                    content=tool_input["content"],
-                    content_type=tool_input["content_type"],
-                    is_base64=tool_input.get("is_base64", False),
-                )
+                card_id = tool_input["card_id"]
+                has_content = "content" in tool_input
+                has_file_path = "file_path" in tool_input
+                source_count = sum([has_content, has_file_path])
+
+                if source_count == 0:
+                    raise ValueError(
+                        "Must provide exactly one of: content or file_path"
+                    )
+                if source_count > 1:
+                    raise ValueError(
+                        "content and file_path are mutually exclusive — provide only one"
+                    )
+
+                if has_file_path:
+                    return self.client.upload_attachment(
+                        card_id=card_id,
+                        file_path=tool_input["file_path"],
+                        content_type=tool_input.get("content_type"),
+                        filename=tool_input.get("filename"),
+                    )
+                else:
+                    if "filename" not in tool_input:
+                        raise ValueError("filename is required when using content")
+                    if "content_type" not in tool_input:
+                        raise ValueError("content_type is required when using content")
+                    return self.client.upload_file_content(
+                        card_id=card_id,
+                        filename=tool_input["filename"],
+                        content=tool_input["content"],
+                        content_type=tool_input["content_type"],
+                        is_base64=tool_input.get("is_base64", False),
+                    )
 
             case "get_attachment":
                 return self.client.get_attachment(

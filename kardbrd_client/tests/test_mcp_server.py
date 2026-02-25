@@ -208,6 +208,158 @@ class TestMCPToolExecution:
         assert result["title"] == "Updated Title"
 
 
+class TestAttachFileToolExecution:
+    """Tests for attach_file tool with file_path support."""
+
+    @pytest.fixture
+    def mock_client(self):
+        """Create a mock KardbrdClient."""
+        return MagicMock()
+
+    @pytest.fixture
+    def server(self, mock_client):
+        """Create a KardbrdMCPServer with mocked client."""
+        with patch("kardbrd_client.mcp_server.KardbrdClient", return_value=mock_client):
+            return KardbrdMCPServer("http://test.local", "test-token")
+
+    def test_attach_file_with_content(self, server, mock_client):
+        """attach_file with content uses upload_file_content."""
+        mock_client.upload_file_content.return_value = {
+            "id": "att-123",
+            "filename": "test.txt",
+        }
+
+        result = server.executor.execute(
+            "attach_file",
+            {
+                "card_id": "card-456",
+                "filename": "test.txt",
+                "content": "hello world",
+                "content_type": "text/plain",
+            },
+        )
+
+        mock_client.upload_file_content.assert_called_once_with(
+            card_id="card-456",
+            filename="test.txt",
+            content="hello world",
+            content_type="text/plain",
+            is_base64=False,
+        )
+        assert result["filename"] == "test.txt"
+
+    def test_attach_file_with_content_base64(self, server, mock_client):
+        """attach_file with content and is_base64=True passes flag through."""
+        mock_client.upload_file_content.return_value = {"id": "att-123"}
+
+        server.executor.execute(
+            "attach_file",
+            {
+                "card_id": "card-456",
+                "filename": "image.png",
+                "content": "iVBORw0KGgo=",
+                "content_type": "image/png",
+                "is_base64": True,
+            },
+        )
+
+        mock_client.upload_file_content.assert_called_once_with(
+            card_id="card-456",
+            filename="image.png",
+            content="iVBORw0KGgo=",
+            content_type="image/png",
+            is_base64=True,
+        )
+
+    def test_attach_file_with_file_path(self, server, mock_client):
+        """attach_file with file_path uses upload_attachment."""
+        mock_client.upload_attachment.return_value = {
+            "id": "att-123",
+            "filename": "screenshot.png",
+        }
+
+        result = server.executor.execute(
+            "attach_file",
+            {
+                "card_id": "card-456",
+                "file_path": "/tmp/screenshot.png",
+            },
+        )
+
+        mock_client.upload_attachment.assert_called_once_with(
+            card_id="card-456",
+            file_path="/tmp/screenshot.png",
+            content_type=None,
+            filename=None,
+        )
+        assert result["filename"] == "screenshot.png"
+
+    def test_attach_file_with_file_path_and_overrides(self, server, mock_client):
+        """attach_file with file_path respects explicit filename and content_type."""
+        mock_client.upload_attachment.return_value = {"id": "att-123"}
+
+        server.executor.execute(
+            "attach_file",
+            {
+                "card_id": "card-456",
+                "file_path": "/tmp/screenshot.png",
+                "filename": "custom-name.png",
+                "content_type": "image/png",
+            },
+        )
+
+        mock_client.upload_attachment.assert_called_once_with(
+            card_id="card-456",
+            file_path="/tmp/screenshot.png",
+            content_type="image/png",
+            filename="custom-name.png",
+        )
+
+    def test_attach_file_no_source_raises(self, server):
+        """attach_file with no content/file_path raises ValueError."""
+        with pytest.raises(ValueError, match="Must provide exactly one of"):
+            server.executor.execute(
+                "attach_file",
+                {"card_id": "card-456"},
+            )
+
+    def test_attach_file_multiple_sources_raises(self, server):
+        """attach_file with both content and file_path raises ValueError."""
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            server.executor.execute(
+                "attach_file",
+                {
+                    "card_id": "card-456",
+                    "content": "hello",
+                    "file_path": "/tmp/test.txt",
+                },
+            )
+
+    def test_attach_file_content_requires_filename(self, server):
+        """attach_file with content but no filename raises ValueError."""
+        with pytest.raises(ValueError, match="filename is required"):
+            server.executor.execute(
+                "attach_file",
+                {
+                    "card_id": "card-456",
+                    "content": "hello",
+                    "content_type": "text/plain",
+                },
+            )
+
+    def test_attach_file_content_requires_content_type(self, server):
+        """attach_file with content but no content_type raises ValueError."""
+        with pytest.raises(ValueError, match="content_type is required"):
+            server.executor.execute(
+                "attach_file",
+                {
+                    "card_id": "card-456",
+                    "content": "hello",
+                    "filename": "test.txt",
+                },
+            )
+
+
 class TestTokenFormats:
     """Tests for different token format handling."""
 
