@@ -496,7 +496,7 @@ Use this instead of calling create_checklist + add_todo repeatedly when creating
     },
     {
         "name": "attach_file",
-        "description": "Upload any file as an attachment to a card. For text files, provide content directly. For binary files, provide base64-encoded content with is_base64=true.",
+        "description": "Upload a local file or inline content as an attachment to a card. Provide either content (text or base64-encoded) or file_path (local file path). When using file_path, filename and content_type are auto-detected if not provided. For remote URLs, use the add_link tool instead.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -506,23 +506,27 @@ Use this instead of calling create_checklist + add_todo repeatedly when creating
                 },
                 "filename": {
                     "type": "string",
-                    "description": "Filename for the attachment",
+                    "description": "Filename for the attachment (optional when using file_path — auto-detected from path)",
                 },
                 "content": {
                     "type": "string",
-                    "description": "File content (text or base64-encoded binary)",
+                    "description": "File content (text or base64-encoded binary). Mutually exclusive with file_path.",
                 },
                 "content_type": {
                     "type": "string",
-                    "description": "MIME type (e.g., 'text/plain', 'image/png')",
+                    "description": "MIME type (e.g., 'text/plain', 'image/png'). Optional when using file_path — auto-detected from extension.",
                 },
                 "is_base64": {
                     "type": "boolean",
                     "description": "Set to true if content is base64-encoded binary",
                     "default": False,
                 },
+                "file_path": {
+                    "type": "string",
+                    "description": "Local file path to upload. Mutually exclusive with content.",
+                },
             },
-            "required": ["card_id", "filename", "content", "content_type"],
+            "required": ["card_id"],
         },
     },
     {
