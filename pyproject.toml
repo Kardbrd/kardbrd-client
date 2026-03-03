@@ -26,6 +26,7 @@ classifiers = [
 dependencies = [
     "httpx>=0.25.0",
     "apscheduler>=3.10.0",
+    "click>=8.0.0",
     "rich>=13.0.0",
     "tenacity>=8.0.0",
     "mcp>=1.0.0",
@@ -54,6 +55,7 @@ Documentation = "https://github.com/example/kardbrd-client#readme"
 Issues = "https://github.com/example/kardbrd-client/issues"
 
 [project.scripts]
+kardbrd = "kardbrd_client.cli:main"
 kardbrd-mcp = "kardbrd_client.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]

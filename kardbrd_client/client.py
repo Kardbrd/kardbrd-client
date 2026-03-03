@@ -255,12 +255,13 @@ class KardbrdClient:
         """
         return self._request("GET", "/api/boards/")
 
-    def get_board(self, board_id: str) -> dict[str, Any]:
+    def get_board(self, board_id: str, include_archived: bool = False) -> dict[str, Any]:
         """
         Get board details including lists, cards, and members.
 
         Args:
             board_id: The public_id  of the board
+            include_archived: Include archived cards in the response (default False)
 
         Returns:
             Board object with lists, cards, members, etc.
@@ -271,7 +272,11 @@ class KardbrdClient:
             >>> for lst in board['lists']:
             ...     print(f"  - {lst['name']}: {len(lst['cards'])} cards")
         """
-        return self._request("GET", f"/api/boards/{board_id}/")
+        params = {}
+        if include_archived:
+            params["include_archived"] = "true"
+        query_string = f"?{urlencode(params)}" if params else ""
+        return self._request("GET", f"/api/boards/{board_id}/{query_string}")
 
     def list_boards_markdown(self) -> str:
         """
@@ -1217,6 +1222,242 @@ class KardbrdClient:
 
         query_string = urlencode(params)
         return self._request_markdown(f"/api/boards/{board_id}/activity/?{query_string}")
+
+    # =========================================================================
+    # Search Methods
+    # =========================================================================
+
+    def search(
+        self,
+        query: str,
+        *,
+        workspace: str | None = None,
+        include_archived: bool = True,
+        limit: int = 30,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """
+        Search cards across all accessible boards.
+
+        Args:
+            query: Search query string
+            workspace: Filter to a workspace by public ID (optional)
+            include_archived: Include archived cards (default True)
+            limit: Max results (default 30, max 100)
+            offset: Pagination offset (default 0)
+
+        Returns:
+            Dict with 'cards', 'total_count', and 'has_more'
+        """
+        params = {"q": query, "limit": str(limit), "offset": str(offset)}
+        if not include_archived:
+            params["include_archived"] = "false"
+        if workspace:
+            params["workspace"] = workspace
+        query_string = urlencode(params)
+        return self._request("GET", f"/api/search/?{query_string}")
+
+    def board_card_search(
+        self,
+        board_id: str,
+        query: str,
+        *,
+        limit: int = 10,
+    ) -> dict[str, Any]:
+        """
+        Search cards on a specific board by title.
+
+        Args:
+            board_id: The public_id of the board
+            query: Search query string
+            limit: Max results (default 10, max 20)
+
+        Returns:
+            Dict with 'cards' list
+        """
+        params = {"q": query, "limit": str(limit)}
+        query_string = urlencode(params)
+        return self._request("GET", f"/api/boards/{board_id}/cards/search/?{query_string}")
+
+    # =========================================================================
+    # Global Activity Methods
+    # =========================================================================
+
+    def get_activity(
+        self,
+        *,
+        since: str | None = None,
+        offset: int = 0,
+        limit: int = 30,
+        actor: str | None = None,
+        source: str | None = None,
+        period: str | None = None,
+        board: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get cross-board activity feed.
+
+        Args:
+            since: ISO 8601 timestamp to filter activities after (optional)
+            offset: Pagination offset (default 0)
+            limit: Max results (default 30, max 100)
+            actor: Filter by actor type: 'all', 'human', 'bot' (optional)
+            source: Filter by source: 'all', 'web', 'api' (optional)
+            period: Time period: 'all', 'today', 'yesterday', 'week', 'month' (optional)
+            board: Filter by board public ID (optional)
+
+        Returns:
+            Dict with 'activities' list
+        """
+        params: dict[str, str] = {"limit": str(limit), "offset": str(offset)}
+        if since:
+            params["since"] = since
+        if actor:
+            params["actor"] = actor
+        if source:
+            params["source"] = source
+        if period:
+            params["period"] = period
+        if board:
+            params["board"] = board
+        query_string = urlencode(params)
+        return self._request("GET", f"/api/activity/?{query_string}")
+
+    def get_card_activity(
+        self,
+        card_id: str,
+        *,
+        since: str | None = None,
+        limit: int = 20,
+    ) -> dict[str, Any]:
+        """
+        Get activity feed for a specific card.
+
+        Args:
+            card_id: The public_id of the card
+            since: ISO 8601 timestamp to filter activities after (optional)
+            limit: Max results (default 20, max 100)
+
+        Returns:
+            Dict with 'activities' list and 'card_id'
+        """
+        params: dict[str, str] = {"limit": str(limit)}
+        if since:
+            params["since"] = since
+        query_string = urlencode(params)
+        return self._request("GET", f"/api/cards/{card_id}/activity/?{query_string}")
+
+    # =========================================================================
+    # Board Management Methods
+    # =========================================================================
+
+    def update_board(self, board_id: str, *, name: str) -> dict[str, Any]:
+        """
+        Update board fields.
+
+        Args:
+            board_id: The public_id of the board
+            name: New board name
+
+        Returns:
+            Updated board object with id and name
+        """
+        return self._request("PATCH", f"/api/boards/{board_id}/", json={"name": name})
+
+    def archive_board(self, board_id: str) -> dict[str, Any]:
+        """
+        Archive a board.
+
+        Args:
+            board_id: The public_id of the board
+
+        Returns:
+            Board object with is_archived=True
+        """
+        return self._request("POST", f"/api/boards/{board_id}/archive/")
+
+    def unarchive_board(self, board_id: str) -> dict[str, Any]:
+        """
+        Unarchive a board.
+
+        Args:
+            board_id: The public_id of the board
+
+        Returns:
+            Board object with is_archived=False
+        """
+        return self._request("POST", f"/api/boards/{board_id}/unarchive/")
+
+    def toggle_board_favorite(self, board_id: str) -> dict[str, Any]:
+        """
+        Toggle the favorite status for a board.
+
+        Args:
+            board_id: The public_id of the board
+
+        Returns:
+            Dict with 'is_favorite' boolean
+        """
+        return self._request("POST", f"/api/boards/{board_id}/favorite/")
+
+    # =========================================================================
+    # List Methods
+    # =========================================================================
+
+    def create_list(self, board_id: str, name: str) -> dict[str, Any]:
+        """
+        Create a new list on a board.
+
+        Args:
+            board_id: The public_id of the board
+            name: List name
+
+        Returns:
+            Created list object with list_id, name, position
+        """
+        return self._request(
+            "POST",
+            f"/api/boards/{board_id}/lists/",
+            json={"name": name},
+        )
+
+    def move_list(self, list_id: str, position: int) -> dict[str, Any]:
+        """
+        Move/reorder a list to a new position.
+
+        Args:
+            list_id: The public_id of the list
+            position: New position (0-indexed)
+
+        Returns:
+            Updated list object with id, name, position
+        """
+        return self._request(
+            "POST",
+            f"/api/lists/{list_id}/move/",
+            json={"position": position},
+        )
+
+    # =========================================================================
+    # Cross-board Card Move
+    # =========================================================================
+
+    def move_card_to_board(self, card_id: str, board_id: str) -> dict[str, Any]:
+        """
+        Move a card to a different board.
+
+        Args:
+            card_id: The public_id of the card
+            board_id: The public_id of the target board
+
+        Returns:
+            Dict with card id, title, and redirect_url
+        """
+        return self._request(
+            "POST",
+            f"/api/cards/{card_id}/move-to-board/",
+            json={"board_id": board_id},
+        )
 
     def report_status(self, status: str) -> dict[str, Any]:
         """
