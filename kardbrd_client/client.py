@@ -19,6 +19,9 @@ from tenacity import (
 logger = logging.getLogger(__name__)
 
 
+_UNSET = object()  # Sentinel to distinguish "not provided" from None (clear field)
+
+
 class KardbrdAPIError(Exception):
     """Exception raised for Kardbrd API errors."""
 
@@ -293,12 +296,13 @@ class KardbrdClient:
         """
         return self._request_markdown("/api/boards/")
 
-    def get_board_markdown(self, board_id: str) -> str:
+    def get_board_markdown(self, board_id: str, include_archived: bool = False) -> str:
         """
         Get board details in markdown format.
 
         Args:
             board_id: The public_id  of the board
+            include_archived: Include archived cards in the response (default False)
 
         Returns:
             Markdown-formatted string with full board hierarchy
@@ -310,7 +314,11 @@ class KardbrdClient:
             ## Members
             ...
         """
-        return self._request_markdown(f"/api/boards/{board_id}/")
+        params = {}
+        if include_archived:
+            params["include_archived"] = "true"
+        query_string = f"?{urlencode(params)}" if params else ""
+        return self._request_markdown(f"/api/boards/{board_id}/{query_string}")
 
     # =========================================================================
     # Label Methods
@@ -442,7 +450,7 @@ class KardbrdClient:
         title: str | None = None,
         description: str | None = None,
         due_date: str | None = None,
-        assignee_id: str | None = None,
+        assignee_id: str | None | object = _UNSET,
         label_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         """
@@ -475,7 +483,7 @@ class KardbrdClient:
             data["description"] = description
         if due_date is not None:
             data["due_date"] = due_date
-        if assignee_id is not None:
+        if assignee_id is not _UNSET:
             data["assignee_id"] = assignee_id
         if label_ids is not None:
             data["label_ids"] = label_ids

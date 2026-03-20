@@ -1,12 +1,15 @@
 """Tests for the kardbrd CLI."""
 
 import json
+import os
+import tempfile
 from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
 
 from kardbrd_client.cli import cli
+from kardbrd_client.client import KardbrdAPIError
 
 
 @pytest.fixture
@@ -161,7 +164,7 @@ class TestCardCommands:
             cli, [*CLI_OPTS, "card", "create", "--board", "b1", "--list", "l1", "--title", "New Card"]
         )
         assert result.exit_code == 0
-        mock_client.create_card.assert_called_once_with("b1", "l1", "New Card", "")
+        mock_client.create_card.assert_called_once_with(board_id="b1", list_id="l1", title="New Card")
 
     def test_card_update(self, runner, mock_client):
         mock_client.update_card.return_value = {"id": "c1"}
@@ -202,7 +205,7 @@ class TestCardCommands:
         mock_client.update_card.return_value = {"id": "c1"}
         result = runner.invoke(cli, [*CLI_OPTS, "card", "unassign", "c1"])
         assert result.exit_code == 0
-        mock_client.update_card.assert_called_once_with("c1", assignee_id="")
+        mock_client.update_card.assert_called_once_with("c1", assignee_id=None)
 
     def test_card_activity(self, runner, mock_client):
         mock_client.get_card_activity.return_value = {"activities": []}
@@ -342,7 +345,7 @@ class TestSearchCommand:
         result = runner.invoke(cli, [*CLI_OPTS, "search", "my query"])
         assert result.exit_code == 0
         mock_client.search.assert_called_once_with(
-            "my query", workspace=None, include_archived=True, limit=30, offset=0
+            "my query", workspace=None, include_archived=False, limit=30, offset=0
         )
 
     def test_search_with_options(self, runner, mock_client):
@@ -389,3 +392,100 @@ class TestListCommands:
         result = runner.invoke(cli, [*CLI_OPTS, "list", "move", "l1", "--position", "2"])
         assert result.exit_code == 0
         mock_client.move_list.assert_called_once_with("l1", 2)
+
+
+class TestErrorHandling:
+    def test_api_error_on_board_get(self, runner, mock_client):
+        mock_client.get_board.side_effect = KardbrdAPIError("Not found", code="NOT_FOUND", status_code=404)
+        result = runner.invoke(cli, [*CLI_OPTS, "board", "get", "bad_id"])
+        assert result.exit_code != 0
+        assert "Not found" in result.output
+
+    def test_api_error_on_card_create(self, runner, mock_client):
+        mock_client.create_card.side_effect = KardbrdAPIError("Validation error", status_code=400)
+        result = runner.invoke(
+            cli, [*CLI_OPTS, "card", "create", "--board", "b1", "--list", "l1", "--title", "Test"]
+        )
+        assert result.exit_code != 0
+        assert "Validation error" in result.output
+
+    def test_api_error_on_comment_add(self, runner, mock_client):
+        mock_client.add_comment.side_effect = KardbrdAPIError("Server error", status_code=500)
+        result = runner.invoke(cli, [*CLI_OPTS, "comment", "add", "c1", "Hello"])
+        assert result.exit_code != 0
+        assert "Server error" in result.output
+
+
+class TestNoOpUpdates:
+    def test_card_update_no_flags(self, runner, mock_client):
+        result = runner.invoke(cli, [*CLI_OPTS, "card", "update", "c1"])
+        assert result.exit_code != 0
+        assert "at least one update flag" in result.output
+
+    def test_link_update_no_flags(self, runner, mock_client):
+        result = runner.invoke(cli, [*CLI_OPTS, "link", "update", "c1", "lk1"])
+        assert result.exit_code != 0
+        assert "at least one update flag" in result.output
+
+    def test_checklist_update_no_flags(self, runner, mock_client):
+        result = runner.invoke(
+            cli, [*CLI_OPTS, "checklist", "update", "c1", "--checklist", "cl1", "--item", "t1"]
+        )
+        assert result.exit_code != 0
+        assert "at least one update flag" in result.output
+
+
+class TestAttachmentUpload:
+    def test_attachment_upload(self, runner, mock_client):
+        mock_client.upload_attachment.return_value = {"id": "a1", "filename": "test.txt"}
+        with runner.isolated_filesystem():
+            with open("test.txt", "w") as f:
+                f.write("hello world")
+            result = runner.invoke(cli, [*CLI_OPTS, "attachment", "upload", "c1", "test.txt"])
+            assert result.exit_code == 0
+            mock_client.upload_attachment.assert_called_once_with("c1", "test.txt")
+
+
+class TestAttachmentMarkdownContentFile:
+    def test_content_file(self, runner, mock_client):
+        mock_client.upload_markdown_content.return_value = {"id": "a1"}
+        with runner.isolated_filesystem():
+            with open("notes.md", "w") as f:
+                f.write("# Notes\nSome content.")
+            result = runner.invoke(
+                cli,
+                [*CLI_OPTS, "attachment", "markdown", "c1", "--filename", "notes.md", "--content-file", "notes.md"],
+            )
+            assert result.exit_code == 0
+            mock_client.upload_markdown_content.assert_called_once_with("c1", "notes.md", "# Notes\nSome content.")
+
+    def test_content_and_content_file_mutually_exclusive(self, runner, mock_client):
+        with runner.isolated_filesystem():
+            with open("notes.md", "w") as f:
+                f.write("content")
+            result = runner.invoke(
+                cli,
+                [*CLI_OPTS, "attachment", "markdown", "c1", "--filename", "f.md",
+                 "--content", "inline", "--content-file", "notes.md"],
+            )
+            assert result.exit_code != 0
+            assert "mutually exclusive" in result.output
+
+    def test_no_content_provided(self, runner, mock_client):
+        result = runner.invoke(
+            cli, [*CLI_OPTS, "attachment", "markdown", "c1", "--filename", "f.md"]
+        )
+        assert result.exit_code != 0
+        assert "required" in result.output
+
+
+class TestBoardMembersMarkdown:
+    def test_board_members_md_extracts_section(self, runner, mock_client):
+        mock_client.get_board_markdown.return_value = (
+            "# My Board\n\n## Members\n\n- Alice (admin)\n- Bob (member)\n\n## Lists\n\n### Todo\n"
+        )
+        result = runner.invoke(cli, [*CLI_OPTS, "-f", "md", "board", "members", "abc"])
+        assert result.exit_code == 0
+        assert "## Members" in result.output
+        assert "Alice" in result.output
+        assert "## Lists" not in result.output

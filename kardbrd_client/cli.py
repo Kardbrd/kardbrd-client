@@ -3,7 +3,6 @@ Kardbrd CLI — interact with Kardbrd boards from the command line.
 """
 
 import json
-import os
 import sys
 
 import click
@@ -38,7 +37,7 @@ class Context:
 pass_ctx = click.make_pass_decorator(Context)
 
 
-def _output(data, fmt: str) -> None:
+def _output(data) -> None:
     """Output data in the requested format."""
     if isinstance(data, str):
         click.echo(data)
@@ -59,7 +58,7 @@ def _handle_error(e: KardbrdAPIError) -> None:
 
 @click.group()
 @click.option("--api-url", envvar="KARDBRD_API_URL", help="Kardbrd API base URL.")
-@click.option("--token", envvar="KARDBRD_TOKEN", help="Authentication token.")
+@click.option("--token", envvar="KARDBRD_TOKEN", help="Authentication token. [prefer env: KARDBRD_TOKEN]")
 @click.option(
     "-f",
     "--format",
@@ -74,6 +73,7 @@ def cli(ctx, api_url, token, fmt):
     """Kardbrd CLI — interact with Kardbrd boards from the command line."""
     ctx.ensure_object(dict)
     ctx.obj = Context(api_url=api_url, token=token, fmt=fmt)
+    ctx.call_on_close(lambda: ctx.obj._client.close() if ctx.obj._client else None)
 
 
 # =============================================================================
@@ -136,9 +136,9 @@ def board_get(ctx, board_id, include_archived):
     """Get board details including lists, cards, and members."""
     try:
         if ctx.fmt == "md":
-            _output(ctx.client.get_board_markdown(board_id), ctx.fmt)
+            _output(ctx.client.get_board_markdown(board_id, include_archived=include_archived))
         else:
-            _output(ctx.client.get_board(board_id, include_archived=include_archived), ctx.fmt)
+            _output(ctx.client.get_board(board_id, include_archived=include_archived))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -149,9 +149,9 @@ def board_list(ctx):
     """List all accessible boards."""
     try:
         if ctx.fmt == "md":
-            _output(ctx.client.list_boards_markdown(), ctx.fmt)
+            _output(ctx.client.list_boards_markdown())
         else:
-            _output(ctx.client.list_boards(), ctx.fmt)
+            _output(ctx.client.list_boards())
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -162,7 +162,7 @@ def board_list(ctx):
 def board_labels(ctx, board_id):
     """Get all labels defined on a board."""
     try:
-        _output(ctx.client.get_board_labels(board_id), ctx.fmt)
+        _output(ctx.client.get_board_labels(board_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -176,9 +176,9 @@ def board_activity(ctx, board_id, limit, since):
     """Get recent activity on a board."""
     try:
         if ctx.fmt == "md":
-            _output(ctx.client.get_board_activity_markdown(board_id, since=since, limit=limit), ctx.fmt)
+            _output(ctx.client.get_board_activity_markdown(board_id, since=since, limit=limit))
         else:
-            _output(ctx.client.get_board_activity(board_id, since=since, limit=limit), ctx.fmt)
+            _output(ctx.client.get_board_activity(board_id, since=since, limit=limit))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -190,10 +190,23 @@ def board_members(ctx, board_id):
     """List all members of a board."""
     try:
         if ctx.fmt == "md":
-            _output(ctx.client.get_board_markdown(board_id), ctx.fmt)
+            full_md = ctx.client.get_board_markdown(board_id)
+            # Extract only the ## Members section from the full board markdown
+            lines = full_md.split("\n")
+            members_lines = []
+            in_members = False
+            for line in lines:
+                if line.startswith("## Members"):
+                    in_members = True
+                    members_lines.append(line)
+                elif in_members and line.startswith("## "):
+                    break
+                elif in_members:
+                    members_lines.append(line)
+            _output("\n".join(members_lines).strip() if members_lines else "No members section found.")
         else:
             data = ctx.client.get_board(board_id)
-            _output(data.get("members", []), ctx.fmt)
+            _output(data.get("members", []))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -205,7 +218,7 @@ def board_members(ctx, board_id):
 def board_update(ctx, board_id, name):
     """Update a board's name."""
     try:
-        _output(ctx.client.update_board(board_id, name=name), ctx.fmt)
+        _output(ctx.client.update_board(board_id, name=name))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -216,7 +229,7 @@ def board_update(ctx, board_id, name):
 def board_archive(ctx, board_id):
     """Archive a board."""
     try:
-        _output(ctx.client.archive_board(board_id), ctx.fmt)
+        _output(ctx.client.archive_board(board_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -227,7 +240,7 @@ def board_archive(ctx, board_id):
 def board_unarchive(ctx, board_id):
     """Unarchive a board."""
     try:
-        _output(ctx.client.unarchive_board(board_id), ctx.fmt)
+        _output(ctx.client.unarchive_board(board_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -238,7 +251,7 @@ def board_unarchive(ctx, board_id):
 def board_favorite(ctx, board_id):
     """Toggle favorite status for a board."""
     try:
-        _output(ctx.client.toggle_board_favorite(board_id), ctx.fmt)
+        _output(ctx.client.toggle_board_favorite(board_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -251,7 +264,7 @@ def board_favorite(ctx, board_id):
 def board_search(ctx, board_id, query, limit):
     """Search cards on a board by title."""
     try:
-        _output(ctx.client.board_card_search(board_id, query, limit=limit), ctx.fmt)
+        _output(ctx.client.board_card_search(board_id, query, limit=limit))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -274,9 +287,9 @@ def card_get(ctx, card_id):
     """Get card details including checklists, comments, and metadata."""
     try:
         if ctx.fmt == "md":
-            _output(ctx.client.get_card_markdown(card_id), ctx.fmt)
+            _output(ctx.client.get_card_markdown(card_id))
         else:
-            _output(ctx.client.get_card(card_id), ctx.fmt)
+            _output(ctx.client.get_card(card_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -285,12 +298,15 @@ def card_get(ctx, card_id):
 @click.option("--board", "board_id", required=True, help="Board ID.")
 @click.option("--list", "list_id", required=True, help="List ID.")
 @click.option("--title", required=True, help="Card title.")
-@click.option("--description", default="", help="Card description.")
+@click.option("--description", default=None, help="Card description.")
 @pass_ctx
 def card_create(ctx, board_id, list_id, title, description):
     """Create a new card in a list."""
     try:
-        _output(ctx.client.create_card(board_id, list_id, title, description), ctx.fmt)
+        kwargs = {"board_id": board_id, "list_id": list_id, "title": title}
+        if description is not None:
+            kwargs["description"] = description
+        _output(ctx.client.create_card(**kwargs))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -317,7 +333,10 @@ def card_update(ctx, card_id, title, description, due_date, assignee_id, label_i
             kwargs["assignee_id"] = assignee_id
         if label_ids:
             kwargs["label_ids"] = list(label_ids)
-        _output(ctx.client.update_card(card_id, **kwargs), ctx.fmt)
+        if not kwargs:
+            click.echo("Error: at least one update flag is required.", err=True)
+            sys.exit(1)
+        _output(ctx.client.update_card(card_id, **kwargs))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -330,7 +349,7 @@ def card_update(ctx, card_id, title, description, due_date, assignee_id, label_i
 def card_move(ctx, card_id, list_id, position):
     """Move a card to a different list."""
     try:
-        _output(ctx.client.move_card(card_id, list_id, position=position), ctx.fmt)
+        _output(ctx.client.move_card(card_id, list_id, position=position))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -341,7 +360,7 @@ def card_move(ctx, card_id, list_id, position):
 def card_archive(ctx, card_id):
     """Archive a card."""
     try:
-        _output(ctx.client.archive_card(card_id), ctx.fmt)
+        _output(ctx.client.archive_card(card_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -352,7 +371,7 @@ def card_archive(ctx, card_id):
 def card_unarchive(ctx, card_id):
     """Restore an archived card."""
     try:
-        _output(ctx.client.unarchive_card(card_id), ctx.fmt)
+        _output(ctx.client.unarchive_card(card_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -364,7 +383,7 @@ def card_unarchive(ctx, card_id):
 def card_assign(ctx, card_id, user_id):
     """Assign a board member to a card."""
     try:
-        _output(ctx.client.update_card(card_id, assignee_id=user_id), ctx.fmt)
+        _output(ctx.client.update_card(card_id, assignee_id=user_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -375,7 +394,7 @@ def card_assign(ctx, card_id, user_id):
 def card_unassign(ctx, card_id):
     """Remove the assignee from a card."""
     try:
-        _output(ctx.client.update_card(card_id, assignee_id=""), ctx.fmt)
+        _output(ctx.client.update_card(card_id, assignee_id=None))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -388,7 +407,7 @@ def card_unassign(ctx, card_id):
 def card_activity(ctx, card_id, limit, since):
     """Get recent activity on a card."""
     try:
-        _output(ctx.client.get_card_activity(card_id, since=since, limit=limit), ctx.fmt)
+        _output(ctx.client.get_card_activity(card_id, since=since, limit=limit))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -400,7 +419,7 @@ def card_activity(ctx, card_id, limit, since):
 def card_move_to_board(ctx, card_id, board_id):
     """Move a card to a different board."""
     try:
-        _output(ctx.client.move_card_to_board(card_id, board_id), ctx.fmt)
+        _output(ctx.client.move_card_to_board(card_id, board_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -423,7 +442,7 @@ def comment():
 def comment_add(ctx, card_id, message):
     """Add a comment to a card."""
     try:
-        _output(ctx.client.add_comment(card_id, message), ctx.fmt)
+        _output(ctx.client.add_comment(card_id, message))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -449,7 +468,7 @@ def comment_delete(ctx, card_id, comment_id):
 def comment_react(ctx, card_id, comment_id, emoji):
     """Toggle a reaction emoji on a comment."""
     try:
-        _output(ctx.client.toggle_reaction(card_id, comment_id, emoji), ctx.fmt)
+        _output(ctx.client.toggle_reaction(card_id, comment_id, emoji))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -472,7 +491,7 @@ def checklist():
 def checklist_create(ctx, card_id, title):
     """Create a new checklist on a card."""
     try:
-        _output(ctx.client.create_checklist(card_id, title), ctx.fmt)
+        _output(ctx.client.create_checklist(card_id, title))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -485,7 +504,7 @@ def checklist_create(ctx, card_id, title):
 def checklist_add_todo(ctx, card_id, checklist_id, title):
     """Add a todo item to a checklist."""
     try:
-        _output(ctx.client.add_todo(card_id, checklist_id, title), ctx.fmt)
+        _output(ctx.client.add_todo(card_id, checklist_id, title))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -503,7 +522,7 @@ def checklist_add_todos(ctx, card_id, title, items):
       kardbrd checklist add-todos CARD_ID --title "Steps" "Step 1" "Step 2" "Step 3"
     """
     try:
-        _output(ctx.client.add_todos(card_id, title, list(items)), ctx.fmt)
+        _output(ctx.client.add_todos(card_id, title, list(items)))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -529,7 +548,10 @@ def checklist_update(ctx, card_id, checklist_id, item_id, title, completed, due_
             kwargs["due_date"] = due_date
         if assignee_ids:
             kwargs["assignee_ids"] = list(assignee_ids)
-        _output(ctx.client.update_todo(card_id, checklist_id, item_id, **kwargs), ctx.fmt)
+        if not kwargs:
+            click.echo("Error: at least one update flag is required.", err=True)
+            sys.exit(1)
+        _output(ctx.client.update_todo(card_id, checklist_id, item_id, **kwargs))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -541,7 +563,7 @@ def checklist_update(ctx, card_id, checklist_id, item_id, title, completed, due_
 def checklist_complete(ctx, card_id, todo_id):
     """Mark a todo item as completed."""
     try:
-        _output(ctx.client.complete_todo(card_id, todo_id), ctx.fmt)
+        _output(ctx.client.complete_todo(card_id, todo_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -553,7 +575,7 @@ def checklist_complete(ctx, card_id, todo_id):
 def checklist_reopen(ctx, card_id, todo_id):
     """Reopen a completed todo item."""
     try:
-        _output(ctx.client.reopen_todo(card_id, todo_id), ctx.fmt)
+        _output(ctx.client.reopen_todo(card_id, todo_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -570,12 +592,10 @@ def checklist_extract(ctx, card_id, target_list_id, checklist_id, prefix):
         if checklist_id:
             _output(
                 ctx.client.extract_checklist_to_cards(card_id, checklist_id, target_list_id, prefix=prefix),
-                ctx.fmt,
             )
         else:
             _output(
                 ctx.client.extract_todos_to_cards(card_id, target_list_id, prefix=prefix),
-                ctx.fmt,
             )
     except KardbrdAPIError as e:
         _handle_error(e)
@@ -599,7 +619,7 @@ def attachment():
 def attachment_upload(ctx, card_id, file_path):
     """Upload a file to a card."""
     try:
-        _output(ctx.client.upload_attachment(card_id, file_path), ctx.fmt)
+        _output(ctx.client.upload_attachment(card_id, file_path))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -607,12 +627,24 @@ def attachment_upload(ctx, card_id, file_path):
 @attachment.command("markdown")
 @click.argument("card_id")
 @click.option("--filename", required=True, help="Filename for the markdown attachment.")
-@click.option("--content", required=True, help="Markdown content.")
+@click.option("--content", default=None, help="Markdown content.")
+@click.option("--content-file", type=click.File("r"), default=None, help="Read content from file (use - for stdin).")
 @pass_ctx
-def attachment_markdown(ctx, card_id, filename, content):
-    """Upload markdown content as an attachment."""
+def attachment_markdown(ctx, card_id, filename, content, content_file):
+    """Upload markdown content as an attachment.
+
+    Provide content via --content or --content-file (use - for stdin).
+    """
+    if content and content_file:
+        click.echo("Error: --content and --content-file are mutually exclusive.", err=True)
+        sys.exit(1)
+    if content_file:
+        content = content_file.read()
+    if not content:
+        click.echo("Error: --content or --content-file is required.", err=True)
+        sys.exit(1)
     try:
-        _output(ctx.client.upload_markdown_content(card_id, filename, content), ctx.fmt)
+        _output(ctx.client.upload_markdown_content(card_id, filename, content))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -623,7 +655,7 @@ def attachment_markdown(ctx, card_id, filename, content):
 def attachment_list(ctx, card_id):
     """List all attachments on a card."""
     try:
-        _output(ctx.client.list_attachments(card_id), ctx.fmt)
+        _output(ctx.client.list_attachments(card_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -635,7 +667,7 @@ def attachment_list(ctx, card_id):
 def attachment_get(ctx, card_id, attachment_id):
     """Download an attachment."""
     try:
-        _output(ctx.client.get_attachment(card_id, attachment_id), ctx.fmt)
+        _output(ctx.client.get_attachment(card_id, attachment_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -659,7 +691,7 @@ def link():
 def link_add(ctx, card_id, url, display_text):
     """Add a URL link to a card."""
     try:
-        _output(ctx.client.add_card_link(card_id, url, display_text=display_text), ctx.fmt)
+        _output(ctx.client.add_card_link(card_id, url, display_text=display_text))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -670,7 +702,7 @@ def link_add(ctx, card_id, url, display_text):
 def link_list(ctx, card_id):
     """List all links on a card."""
     try:
-        _output(ctx.client.list_card_links(card_id), ctx.fmt)
+        _output(ctx.client.list_card_links(card_id))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -684,7 +716,15 @@ def link_list(ctx, card_id):
 def link_update(ctx, card_id, link_id, url, display_text):
     """Update a link."""
     try:
-        _output(ctx.client.update_card_link(card_id, link_id, url=url, display_text=display_text), ctx.fmt)
+        kwargs = {}
+        if url is not None:
+            kwargs["url"] = url
+        if display_text is not None:
+            kwargs["display_text"] = display_text
+        if not kwargs:
+            click.echo("Error: at least one update flag is required.", err=True)
+            sys.exit(1)
+        _output(ctx.client.update_card_link(card_id, link_id, **kwargs))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -710,7 +750,7 @@ def link_delete(ctx, card_id, link_id):
 @cli.command("search")
 @click.argument("query")
 @click.option("--workspace", default=None, help="Filter to workspace by ID.")
-@click.option("--include-archived/--no-archived", default=True, help="Include archived cards.")
+@click.option("--include-archived/--no-archived", default=False, help="Include archived cards.")
 @click.option("--limit", type=int, default=30, help="Max results.")
 @click.option("--offset", type=int, default=0, help="Pagination offset.")
 @pass_ctx
@@ -721,7 +761,6 @@ def search(ctx, query, workspace, include_archived, limit, offset):
             ctx.client.search(
                 query, workspace=workspace, include_archived=include_archived, limit=limit, offset=offset
             ),
-            ctx.fmt,
         )
     except KardbrdAPIError as e:
         _handle_error(e)
@@ -752,7 +791,6 @@ def activity(ctx, limit, since, actor, source, period, board_id):
             ctx.client.get_activity(
                 limit=limit, since=since, actor=actor, source=source, period=period, board=board_id
             ),
-            ctx.fmt,
         )
     except KardbrdAPIError as e:
         _handle_error(e)
@@ -776,7 +814,7 @@ def list_group():
 def list_create(ctx, board_id, name):
     """Create a new list on a board."""
     try:
-        _output(ctx.client.create_list(board_id, name), ctx.fmt)
+        _output(ctx.client.create_list(board_id, name))
     except KardbrdAPIError as e:
         _handle_error(e)
 
@@ -788,7 +826,7 @@ def list_create(ctx, board_id, name):
 def list_move(ctx, list_id, position):
     """Move/reorder a list to a new position."""
     try:
-        _output(ctx.client.move_list(list_id, position), ctx.fmt)
+        _output(ctx.client.move_list(list_id, position))
     except KardbrdAPIError as e:
         _handle_error(e)
 
