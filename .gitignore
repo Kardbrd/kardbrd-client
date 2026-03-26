@@ -40,3 +40,4 @@ state/
 
 # Claude Code local settings
 .claude/
+!.claude/skills/
