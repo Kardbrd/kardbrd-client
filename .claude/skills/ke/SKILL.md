@@ -11,7 +11,10 @@ Deep-dive exploration of the card's topic in the context of the kardbrd-client c
 ## Instructions
 
 1. Read the card description and all comments to understand the topic
+   - Use `kardbrd md card <cardId>` to fetch card details
+   - Use `kardbrd md board <boardId>` to get board context
 2. Explore the codebase systematically through these passes:
+   - **CLI pass**: `kardbrd_client/cli/` — CLI command groups, argument parsing, output formatting
    - **Client pass**: `kardbrd_client/client.py` — REST client, retry logic, request/response handling
    - **MCP Server pass**: `kardbrd_client/mcp_server.py` — MCP server entry point, tool registration
    - **Tool Schemas pass**: `kardbrd_client/tool_schemas.py` — tool definitions and parameter schemas
@@ -21,9 +24,9 @@ Deep-dive exploration of the card's topic in the context of the kardbrd-client c
    - **Runner pass**: `kardbrd_client/runner.py` — AI provider conversation runners
    - **WebSocket pass**: `kardbrd_client/websocket_agent.py` — real-time event handling
    - **Tests pass**: `kardbrd_client/tests/` — test patterns, fixtures, coverage
-3. Look at related cards mentioned in the description (use `!cardId` references)
-4. Check the board for related cards and context
-5. Post findings as a structured comment on the card with:
+3. Look at related cards mentioned in the description — use `kardbrd md card <cardId>` to fetch them
+4. Check the board for related cards and context using `kardbrd md board <boardId>`
+5. Post findings as a structured comment on the card using `kardbrd comment add <cardId> "message"`:
    - Current state (what exists)
    - Relevant code paths and files
    - Proposed approach or options
@@ -34,4 +37,5 @@ Deep-dive exploration of the card's topic in the context of the kardbrd-client c
 - Be thorough but focused on what's relevant to the card
 - Reference specific files and line numbers
 - Note any architectural constraints or patterns to follow
-- If the card mentions other cards, fetch and read them for context
+- If the card mentions other cards, fetch and read them with `kardbrd md card <cardId>`
+- Use `kardbrd` CLI for all board/card interactions (not MCP server tools)
