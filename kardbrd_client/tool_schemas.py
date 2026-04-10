@@ -531,7 +531,7 @@ Use this instead of calling create_checklist + add_todo repeatedly when creating
     },
     {
         "name": "get_attachment",
-        "description": "Download attachment content from a card. Returns text content directly or base64-encoded binary content.",
+        "description": "Get attachment metadata from a card. Returns id, filename, content_type, file_size, and other metadata.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -541,7 +541,7 @@ Use this instead of calling create_checklist + add_todo repeatedly when creating
                 },
                 "attachment_id": {
                     "type": "string",
-                    "description": "The id of the attachment to download",
+                    "description": "The id of the attachment",
                 },
             },
             "required": ["card_id", "attachment_id"],
