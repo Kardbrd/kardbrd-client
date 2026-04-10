@@ -530,24 +530,6 @@ Use this instead of calling create_checklist + add_todo repeatedly when creating
         },
     },
     {
-        "name": "get_attachment",
-        "description": "Download attachment content from a card. Returns text content directly or base64-encoded binary content.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "card_id": {
-                    "type": "string",
-                    "description": "The id of the card",
-                },
-                "attachment_id": {
-                    "type": "string",
-                    "description": "The id of the attachment to download",
-                },
-            },
-            "required": ["card_id", "attachment_id"],
-        },
-    },
-    {
         "name": "download_attachment",
         "description": "Download an attachment to a local temporary file. Returns the file path where the attachment was saved.",
         "input_schema": {

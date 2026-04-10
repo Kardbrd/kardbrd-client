@@ -228,12 +228,6 @@ class ToolExecutor:
                         is_base64=tool_input.get("is_base64", False),
                     )
 
-            case "get_attachment":
-                return self.client.get_attachment(
-                    card_id=tool_input["card_id"],
-                    attachment_id=tool_input["attachment_id"],
-                )
-
             case "download_attachment":
                 return self.client.download_attachment(
                     card_id=tool_input["card_id"],

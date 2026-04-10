@@ -942,26 +942,6 @@ class KardbrdClient:
         attachments = self._request("GET", f"/api/cards/{card_id}/attachments/")
         return {"card_id": card_id, "attachments": attachments}
 
-    def get_attachment(self, card_id: str, attachment_id: str) -> dict[str, Any]:
-        """
-        Get attachment content.
-
-        Args:
-            card_id: The public_id of the card
-            attachment_id: The public_id of the attachment
-
-        Returns:
-            Dict with attachment info and content (text or base64-encoded binary)
-
-        Example:
-            >>> att = client.get_attachment("def456...", "att123...")
-            >>> if att['is_base64']:
-            ...     content = base64.b64decode(att['content'])
-            ... else:
-            ...     content = att['content']
-        """
-        return self._request("GET", f"/api/cards/{card_id}/attachments/{attachment_id}/")
-
     def download_attachment(
         self,
         card_id: str,
