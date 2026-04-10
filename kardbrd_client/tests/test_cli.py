@@ -310,9 +310,14 @@ class TestAttachmentCommands:
         assert result.exit_code == 0
 
     def test_attachment_get(self, runner, mock_client):
-        mock_client.get_attachment.return_value = {"content": "hello"}
+        mock_client.download_attachment.return_value = {
+            "path": "/tmp/report.pdf",
+            "filename": "report.pdf",
+        }
         result = runner.invoke(cli, [*CLI_OPTS, "attachment", "get", "c1", "a1"])
         assert result.exit_code == 0
+        assert "/tmp/report.pdf" in result.output
+        mock_client.download_attachment.assert_called_once_with("c1", "a1")
 
     def test_attachment_markdown(self, runner, mock_client):
         mock_client.upload_markdown_content.return_value = {"id": "a1"}
