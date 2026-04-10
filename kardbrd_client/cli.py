@@ -658,6 +658,18 @@ def attachment_list(ctx, card_id):
         _handle_error(e)
 
 
+@attachment.command("detail")
+@click.argument("card_id")
+@click.argument("attachment_id")
+@pass_ctx
+def attachment_detail(ctx, card_id, attachment_id):
+    """Get attachment metadata."""
+    try:
+        _output(ctx.client.get_attachment(card_id, attachment_id), ctx.format)
+    except KardbrdAPIError as e:
+        _handle_error(e)
+
+
 @attachment.command("get")
 @click.argument("card_id")
 @click.argument("attachment_id")

@@ -942,6 +942,19 @@ class KardbrdClient:
         attachments = self._request("GET", f"/api/cards/{card_id}/attachments/")
         return {"card_id": card_id, "attachments": attachments}
 
+    def get_attachment(self, card_id: str, attachment_id: str) -> dict[str, Any]:
+        """
+        Get attachment metadata.
+
+        Args:
+            card_id: The public_id of the card
+            attachment_id: The public_id of the attachment
+
+        Returns:
+            Dict with attachment metadata (id, filename, content_type, file_size, etc.)
+        """
+        return self._request("GET", f"/api/cards/{card_id}/attachments/{attachment_id}/")
+
     def download_attachment(
         self,
         card_id: str,
