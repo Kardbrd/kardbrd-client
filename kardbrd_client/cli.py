@@ -25,11 +25,9 @@ class Context:
     def client(self) -> KardbrdClient:
         if self._client is None:
             if not self._api_url:
-                click.echo("Error: --api-url or KARDBRD_API_URL is required.", err=True)
-                sys.exit(1)
+                raise click.UsageError("Missing --api-url or KARDBRD_API_URL environment variable.")
             if not self._token:
-                click.echo("Error: --token or KARDBRD_TOKEN is required.", err=True)
-                sys.exit(1)
+                raise click.UsageError("Missing --token or KARDBRD_TOKEN environment variable.")
             self._client = KardbrdClient(self._api_url, self._token)
         return self._client
 
@@ -57,7 +55,7 @@ def _handle_error(e: KardbrdAPIError) -> None:
 
 
 @click.group()
-@click.option("--api-url", envvar="KARDBRD_API_URL", help="Kardbrd API base URL.")
+@click.option("--api-url", envvar="KARDBRD_API_URL", default="https://app.kardbrd.com", show_default=True, help="Kardbrd API base URL.")
 @click.option("--token", envvar="KARDBRD_TOKEN", help="Authentication token. [prefer env: KARDBRD_TOKEN]")
 @click.option(
     "-f",

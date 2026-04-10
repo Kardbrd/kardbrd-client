@@ -39,13 +39,23 @@ class TestTopLevel:
         assert result.exit_code == 0
         assert "1.0.0" in result.output
 
-    def test_missing_api_url(self, runner):
-        result = runner.invoke(cli, ["--token", "tok", "board", "list"])
-        assert result.exit_code != 0
-        assert "api-url" in result.output.lower() or "KARDBRD_API_URL" in result.output
+    def test_default_api_url(self, runner, mock_client):
+        mock_client.list_boards.return_value = []
+        result = runner.invoke(
+            cli,
+            ["--token", "tok", "board", "list"],
+            env={"KARDBRD_API_URL": None},
+        )
+        assert result.exit_code == 0
+        from kardbrd_client.cli import KardbrdClient
+        KardbrdClient.assert_called_with("https://app.kardbrd.com", "tok")
 
     def test_missing_token(self, runner):
-        result = runner.invoke(cli, ["--api-url", "http://x.com", "board", "list"])
+        result = runner.invoke(
+            cli,
+            ["--api-url", "http://x.com", "board", "list"],
+            env={"KARDBRD_TOKEN": None},
+        )
         assert result.exit_code != 0
         assert "token" in result.output.lower() or "KARDBRD_TOKEN" in result.output
 
