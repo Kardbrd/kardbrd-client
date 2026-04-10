@@ -665,9 +665,10 @@ def attachment_list(ctx, card_id):
 @click.argument("attachment_id")
 @pass_ctx
 def attachment_get(ctx, card_id, attachment_id):
-    """Download an attachment."""
+    """Download an attachment to a temporary file."""
     try:
-        _output(ctx.client.get_attachment(card_id, attachment_id))
+        result = ctx.client.download_attachment(card_id, attachment_id)
+        click.echo(result["path"])
     except KardbrdAPIError as e:
         _handle_error(e)
 

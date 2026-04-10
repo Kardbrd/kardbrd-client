@@ -234,6 +234,12 @@ class ToolExecutor:
                     attachment_id=tool_input["attachment_id"],
                 )
 
+            case "download_attachment":
+                return self.client.download_attachment(
+                    card_id=tool_input["card_id"],
+                    attachment_id=tool_input["attachment_id"],
+                )
+
             case "list_attachments":
                 return self.client.list_attachments(card_id=tool_input["card_id"])
 

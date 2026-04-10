@@ -962,6 +962,67 @@ class KardbrdClient:
         """
         return self._request("GET", f"/api/cards/{card_id}/attachments/{attachment_id}/")
 
+    def download_attachment(
+        self,
+        card_id: str,
+        attachment_id: str,
+        output_dir: str = "/tmp",
+    ) -> dict[str, Any]:
+        """
+        Download attachment to a local file.
+
+        Hits the /download/ endpoint which returns a 302 redirect to a
+        presigned S3 URL. Follows the redirect and streams the file to disk.
+
+        Args:
+            card_id: The public_id of the card
+            attachment_id: The public_id of the attachment
+            output_dir: Directory to save the file (default: /tmp)
+
+        Returns:
+            Dict with 'path' and 'filename' keys
+        """
+        # Get the 302 redirect (don't follow it)
+        url = f"/api/cards/{card_id}/attachments/{attachment_id}/download/"
+        try:
+            response = self._client.request("GET", url, follow_redirects=False)
+        except httpx.RequestError as e:
+            raise KardbrdAPIError(f"Request failed: {e}", code="REQUEST_ERROR") from e
+
+        if response.status_code == 401:
+            raise KardbrdAPIError("Unauthorized", code="UNAUTHORIZED", status_code=401)
+        if response.status_code == 404:
+            raise KardbrdAPIError("Not found", code="NOT_FOUND", status_code=404)
+        if response.status_code != 302:
+            raise KardbrdAPIError(
+                f"Expected 302 redirect, got {response.status_code}",
+                code="UNEXPECTED_RESPONSE",
+                status_code=response.status_code,
+            )
+
+        download_url = response.headers["location"]
+
+        # Download from S3 to local file
+        # Extract filename from Content-Disposition or use attachment metadata
+        with httpx.stream("GET", download_url) as s3_response:
+            s3_response.raise_for_status()
+            # Get filename from Content-Disposition header if available
+            cd = s3_response.headers.get("content-disposition", "")
+            if "filename=" in cd:
+                filename = cd.split("filename=")[-1].strip('" ')
+            else:
+                # Fall back to URL path
+                from urllib.parse import urlparse
+
+                filename = os.path.basename(urlparse(download_url).path) or "download"
+
+            filepath = os.path.join(output_dir, filename)
+            with open(filepath, "wb") as f:
+                for chunk in s3_response.iter_bytes():
+                    f.write(chunk)
+
+        return {"path": filepath, "filename": filename}
+
     # =========================================================================
     # Checklist Methods
     # =========================================================================
