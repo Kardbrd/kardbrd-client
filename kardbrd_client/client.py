@@ -25,18 +25,30 @@ _UNSET = object()  # Sentinel to distinguish "not provided" from None (clear fie
 class KardbrdAPIError(Exception):
     """Exception raised for Kardbrd API errors."""
 
-    def __init__(self, message: str, code: str | None = None, status_code: int | None = None):
+    def __init__(
+        self,
+        message: str,
+        code: str | None = None,
+        status_code: int | None = None,
+        errors: dict[str, list[dict]] | None = None,
+    ):
         self.message = message
         self.code = code
         self.status_code = status_code
+        self.errors = errors
         super().__init__(message)
 
     def __str__(self) -> str:
         parts = [self.message]
-        if self.code:
+        if self.code and self.code != "VALIDATION_ERROR":
             parts.append(f"(code: {self.code})")
         if self.status_code:
             parts.append(f"[HTTP {self.status_code}]")
+        if self.errors:
+            for field, field_errors in self.errors.items():
+                field_label = field if field != "__all__" else "general"
+                for fe in field_errors:
+                    parts.append(f"\n  {field_label}: {fe.get('message', '')}")
         return " ".join(parts)
 
 
@@ -186,6 +198,7 @@ class KardbrdClient:
                     message=error_data.get("error", "Unknown error"),
                     code=error_data.get("code"),
                     status_code=response.status_code,
+                    errors=error_data.get("errors"),
                 )
             except ValueError as e:
                 raise KardbrdAPIError(
