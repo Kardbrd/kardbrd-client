@@ -130,10 +130,22 @@ class TestRequestParsesValidationError:
 class TestMCPServerValidationError:
     """Tests for MCP server structured validation error responses."""
 
+    def _call_tool_handler(self, server, name, arguments):
+        """Call the actual registered call_tool handler on the MCP server."""
+        import asyncio
+
+        from mcp.types import CallToolRequest, CallToolRequestParams
+
+        handler = server.server.request_handlers[CallToolRequest]
+        request = CallToolRequest(
+            method="tools/call",
+            params=CallToolRequestParams(name=name, arguments=arguments),
+        )
+        result = asyncio.get_event_loop().run_until_complete(handler(request))
+        return result.root.content[0].text
+
     def test_validation_error_returns_structured_json(self):
         """VALIDATION_ERROR returns structured JSON for AI model."""
-        from mcp.types import TextContent
-
         from kardbrd_client.mcp_server import KardbrdMCPServer
 
         errors = {"title": [{"message": "This field is required.", "code": "required"}]}
@@ -144,24 +156,8 @@ class TestMCPServerValidationError:
             server.executor = Mock()
             server.executor.execute.side_effect = api_error
 
-            # Call the handler directly via the executor path the handler uses
-            # Simulate what call_tool does internally
-            try:
-                server.executor.execute("get_card", {"card_id": "123"})
-                assert False, "Should have raised"
-            except Exception as e:
-                # Replicate the handler logic
-                if isinstance(e, KardbrdAPIError) and e.errors:
-                    error_payload = {
-                        "error": e.message,
-                        "code": e.code,
-                        "errors": e.errors,
-                    }
-                    result = [TextContent(type="text", text=f"Error: {json.dumps(error_payload, indent=2)}")]
-                else:
-                    result = [TextContent(type="text", text=f"Error: {str(e)}")]
+            text = self._call_tool_handler(server, "get_card", {"card_id": "123"})
 
-            text = result[0].text
             assert "Error:" in text
             parsed = json.loads(text.replace("Error: ", "", 1))
             assert parsed["code"] == "VALIDATION_ERROR"
@@ -169,8 +165,6 @@ class TestMCPServerValidationError:
 
     def test_non_validation_error_returns_flat_string(self):
         """Non-validation errors return flat string as before."""
-        from mcp.types import TextContent
-
         from kardbrd_client.mcp_server import KardbrdMCPServer
 
         api_error = KardbrdAPIError("Not found", code="NOT_FOUND", status_code=404)
@@ -180,21 +174,8 @@ class TestMCPServerValidationError:
             server.executor = Mock()
             server.executor.execute.side_effect = api_error
 
-            try:
-                server.executor.execute("get_card", {"card_id": "123"})
-                assert False, "Should have raised"
-            except Exception as e:
-                if isinstance(e, KardbrdAPIError) and e.errors:
-                    error_payload = {
-                        "error": e.message,
-                        "code": e.code,
-                        "errors": e.errors,
-                    }
-                    result = [TextContent(type="text", text=f"Error: {json.dumps(error_payload, indent=2)}")]
-                else:
-                    result = [TextContent(type="text", text=f"Error: {str(e)}")]
+            text = self._call_tool_handler(server, "get_card", {"card_id": "123"})
 
-            text = result[0].text
             assert "Error:" in text
             assert "NOT_FOUND" in text
 

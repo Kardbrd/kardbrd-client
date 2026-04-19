@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from .client import KardbrdClient
+from .client import KardbrdAPIError, KardbrdClient
 from .tools import TOOLS, ToolExecutor
 
 # Rate limit retry configuration
@@ -145,8 +145,6 @@ def _process_anthropic_tool_calls(
             logger.error(f"Tool {tool_name} failed: {e}")
 
             # Surface structured validation errors for AI model retry
-            from .client import KardbrdAPIError
-
             if isinstance(e, KardbrdAPIError) and e.errors:
                 error_detail = json.dumps(
                     {"error": e.message, "code": e.code, "errors": e.errors}, indent=2
@@ -317,8 +315,6 @@ def _process_gemini_tool_calls(
             logger.error(f"Tool {name} failed: {e}")
 
             # Surface structured validation errors for AI model retry
-            from .client import KardbrdAPIError
-
             if isinstance(e, KardbrdAPIError) and e.errors:
                 error_detail = json.dumps(
                     {"error": e.message, "code": e.code, "errors": e.errors}, indent=2

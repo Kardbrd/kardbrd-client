@@ -39,17 +39,18 @@ class KardbrdAPIError(Exception):
         super().__init__(message)
 
     def __str__(self) -> str:
-        parts = [self.message]
+        header_parts = [self.message]
         if self.code and self.code != "VALIDATION_ERROR":
-            parts.append(f"(code: {self.code})")
+            header_parts.append(f"(code: {self.code})")
         if self.status_code:
-            parts.append(f"[HTTP {self.status_code}]")
+            header_parts.append(f"[HTTP {self.status_code}]")
+        result = " ".join(header_parts)
         if self.errors:
             for field, field_errors in self.errors.items():
                 field_label = field if field != "__all__" else "general"
                 for fe in field_errors:
-                    parts.append(f"\n  {field_label}: {fe.get('message', '')}")
-        return " ".join(parts)
+                    result += f"\n  {field_label}: {fe.get('message', '')}"
+        return result
 
 
 def _is_retryable(exception: BaseException) -> bool:

@@ -7,7 +7,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 
-from .client import KardbrdClient
+from .client import KardbrdAPIError, KardbrdClient
 from .tools import TOOLS, ToolExecutor
 
 logger = logging.getLogger(__name__)
@@ -31,8 +31,6 @@ class KardbrdMCPServer:
                 result = self.executor.execute(name, arguments)
                 return [TextContent(type="text", text=json.dumps(result, indent=2))]
             except Exception as e:
-                from .client import KardbrdAPIError
-
                 if isinstance(e, KardbrdAPIError) and e.errors:
                     error_payload = {
                         "error": e.message,
