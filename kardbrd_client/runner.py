@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from .client import KardbrdClient
+from .client import KardbrdAPIError, KardbrdClient
 from .tools import TOOLS, ToolExecutor
 
 # Rate limit retry configuration
@@ -144,11 +144,18 @@ def _process_anthropic_tool_calls(
             error_msg = str(e)
             logger.error(f"Tool {tool_name} failed: {e}")
 
+            # Surface structured validation errors for AI model retry
+            if isinstance(e, KardbrdAPIError) and e.errors:
+                error_detail = json.dumps(
+                    {"error": e.message, "code": e.code, "errors": e.errors}, indent=2
+                )
+                error_msg = f"Validation error:\n{error_detail}"
+
             # Post error comment
             _post_error_comment(
                 client=client,
                 card_id=card_id,
-                error_message=error_msg,
+                error_message=str(e),
                 tool_name=tool_name,
                 tool_input=tool_input,
                 user_name=user_name,
@@ -307,11 +314,18 @@ def _process_gemini_tool_calls(
             error_msg = str(e)
             logger.error(f"Tool {name} failed: {e}")
 
+            # Surface structured validation errors for AI model retry
+            if isinstance(e, KardbrdAPIError) and e.errors:
+                error_detail = json.dumps(
+                    {"error": e.message, "code": e.code, "errors": e.errors}, indent=2
+                )
+                error_msg = f"Validation error:\n{error_detail}"
+
             # Post error comment
             _post_error_comment(
                 client=client,
                 card_id=card_id,
-                error_message=error_msg,
+                error_message=str(e),
                 tool_name=name,
                 tool_input=args,
                 user_name=user_name,
