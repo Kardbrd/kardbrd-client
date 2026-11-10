@@ -5,6 +5,7 @@ Kardbrd API Client implementation.
 import logging
 import mimetypes
 import os
+import re
 from typing import Any
 from urllib.parse import urlencode
 
@@ -20,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 
 _UNSET = object()  # Sentinel to distinguish "not provided" from None (clear field)
+_MIME_TOKEN = r"[!#$%&'*+.^_`|~0-9A-Za-z-]+"
+_CONTENT_TYPE_RE = re.compile(
+    rf'{_MIME_TOKEN}/{_MIME_TOKEN}(?:[ \t]*;[ \t]*{_MIME_TOKEN}[ \t]*=[ \t]*(?:{_MIME_TOKEN}|"(?:[\x20-\x21\x23-\x5B\x5D-\x7E]|\\[\x20-\x7E])*"))*'
+)
 
 
 class KardbrdAPIError(Exception):
@@ -843,9 +848,17 @@ class KardbrdClient:
 
         upload_url = presign_data["upload_url"]
         s3_key = presign_data["s3_key"]
+        signed_content_type = presign_data.get("content_type")
+        if not isinstance(signed_content_type, str) or not _CONTENT_TYPE_RE.fullmatch(
+            signed_content_type
+        ):
+            raise KardbrdAPIError(
+                "Presign response has missing or invalid content_type",
+                code="INVALID_PRESIGN_RESPONSE",
+            )
 
         # 2. Upload file content to S3 with retry logic
-        _upload_to_s3(upload_url, file_path, content_type)
+        _upload_to_s3(upload_url, file_path, signed_content_type)
 
         # 3. Confirm upload
         return self._request(
@@ -855,7 +868,7 @@ class KardbrdClient:
                 "s3_key": s3_key,
                 "filename": filename,
                 "file_size": file_size,
-                "content_type": content_type,
+                "content_type": signed_content_type,
             },
         )
 
