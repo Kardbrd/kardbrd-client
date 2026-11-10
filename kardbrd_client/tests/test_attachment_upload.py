@@ -26,6 +26,27 @@ from kardbrd_client.client import KardbrdAPIError, KardbrdClient
             False,
         ),
         (
+            "data.json",
+            b'{"ok": true}\n',
+            "application/json",
+            'application/json; charset="utf-8"',
+            False,
+        ),
+        (
+            "data.json",
+            b'{"ok": true}\n',
+            "application/json",
+            'application/json; charset="utf-8"; version=2',
+            False,
+        ),
+        (
+            "data.json",
+            b'{"ok": true}\n',
+            "application/json",
+            'application/json ; charset = "utf-8"',
+            False,
+        ),
+        (
             "notes.md",
             b"# Notes\n",
             "text/markdown",
